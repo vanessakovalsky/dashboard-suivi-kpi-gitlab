@@ -1,0 +1,30 @@
+groups:
+  - name: gitlab-team-kpi
+    rules:
+      # Taux d'échec global (tous projets) sur la fenêtre de l'exporter (7 j)
+      - record: gitlab:pipelines_failure_ratio:global
+        expr: |
+          sum(gitlab_pipelines_window{status="failed"})
+          /
+          clamp_min(sum(gitlab_pipelines_window{status=~"success|failed|canceled"}), 1)
+
+      - record: gitlab:issues_weight_remaining:sum
+        expr: sum(gitlab_issues_weight_remaining)
+
+  - name: gitlab-team-alerts
+    rules:
+      - alert: GitLabKpiExporterDown
+        expr: gitlab_exporter_up == 0 or absent(gitlab_exporter_up)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "L'exporter work items ne collecte plus GitLab"
+
+      - alert: PipelineFailureRatioHigh
+        expr: gitlab_pipelines_failure_ratio > 0.3
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taux d'échec pipelines > 30 % sur {{ $labels.project }}"

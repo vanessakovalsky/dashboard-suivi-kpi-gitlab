@@ -1,0 +1,100 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.13"
+  IMAGE: gitlab-workitems-exporter:ci
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: exporter/pyproject.toml
+      - run: pip install -e "exporter[dev]"
+      - name: ruff + mypy
+        working-directory: exporter
+        run: |
+          ruff check . && ruff format --check .
+          mypy workitems_exporter
+      - name: Dashboard à jour
+        run: |
+          python scripts/build_dashboard.py
+          git diff --exit-code grafana/dashboards/
+      - name: hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: exporter/Containerfile
+      - name: shellcheck
+        run: shellcheck scripts/*.sh
+      - name: promtool
+        run: >
+          docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro"
+          --entrypoint promtool docker.io/prom/prometheus:v3.5.0
+          check config /etc/prometheus/prometheus.yml
+      - name: compose config
+        run: cp .env.example .env && sed -i 's/^GITLAB_TOKEN=$/GITLAB_TOKEN=dummy/; s/^GITLAB_GROUP=$/GITLAB_GROUP=demo/' .env && docker compose --profile exporters config -q
+
+  security:
+    needs: lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: exporter/pyproject.toml
+      - run: pip install -e "exporter[dev]" semgrep==1.101.0
+      - name: bandit
+        run: bandit -q -r exporter/workitems_exporter
+      - name: pip-audit
+        run: pip-audit -r exporter/requirements.txt
+      - name: semgrep
+        run: semgrep scan --config p/python --config p/secrets --error exporter scripts
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    needs: security
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: exporter/pyproject.toml
+      - run: pip install -e "exporter[dev]"
+      - working-directory: exporter
+        run: pytest --cov-report=xml
+
+  build-scan:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: docker build -t "$IMAGE" -f exporter/Containerfile exporter
+      - name: trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

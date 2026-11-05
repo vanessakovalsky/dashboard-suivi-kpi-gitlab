@@ -1,0 +1,45 @@
+# Configuration de mvisonneau/gitlab-ci-pipelines-exporter
+# Le token est fourni par la variable d'environnement GCPE_GITLAB_TOKEN (jamais ici).
+log:
+  level: info
+
+server:
+  listen_address: :8080
+  metrics:
+    enabled: true
+
+gitlab:
+  url: http://gitlab
+  enable_health_check: true
+  enable_tls_verify: false   # GitLab interne en HTTP dans la stack
+  maximum_requests_per_second: 5
+
+project_defaults:
+  pull:
+    pipeline:
+      jobs:
+        enabled: true
+    environments:
+      enabled: false
+    merge_requests:
+      enabled: true
+
+pull:
+  projects_from_wildcards:
+    on_init: true
+    scheduled: true
+    interval_seconds: 600
+  metrics:
+    on_init: true
+    scheduled: true
+    interval_seconds: 60
+  refs_from_projects:
+    on_init: true
+    scheduled: true
+    interval_seconds: 600
+
+# Wildcard vide = tous les projets visibles par le token.
+# Pour restreindre à un groupe :
+#   - owner: { name: mon-groupe, kind: group, include_subgroups: true }
+wildcards:
+  - archived: false
