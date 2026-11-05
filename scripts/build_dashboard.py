@@ -503,7 +503,7 @@ def build() -> dict[str, Any]:
             6,
             [
                 target(
-                    'sum by (status) (rate(http_requests_total{job=~"gitlab-rails|gitlab-puma"}[5m]))',
+                    'sum by (status) (rate(http_requests_total{job=~"gitlab-rails|gitlab-puma"}[$__rate_interval]))',
                     "{{status}}",
                 )
             ],
@@ -519,7 +519,10 @@ def build() -> dict[str, Any]:
             6,
             [
                 target("sum(sidekiq_running_jobs)", "En cours"),
-                target("sum(rate(sidekiq_jobs_failed_total[5m]))", "Échecs /s"),
+                target(
+                    "sum(rate(sidekiq_jobs_failed_total[$__rate_interval]))",
+                    "Échecs /s",
+                ),
             ],
             options=ts_opts,
         ),

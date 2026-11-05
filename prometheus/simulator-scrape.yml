@@ -1,0 +1,11 @@
+# Bloc à ajouter sous `scrape_configs:` de votre Prometheus pour scraper le simulateur
+# (scripts/simulate_gitlab_metrics.py serve). Ne pas l'utiliser avec les vrais exporters.
+  - job_name: workitems-exporter     # nom attendu par le panneau « Cibles GitLab joignables »
+    honor_labels: true               # conserve les labels job/instance exposés par le simulateur
+    scrape_interval: 60s
+    static_configs:
+      - targets: ["HOTE_DU_SIMULATEUR:9200"]
+    relabel_configs:
+      # Même label instance que l'historique importé : les courbes se raccordent.
+      - target_label: instance
+        replacement: simulator

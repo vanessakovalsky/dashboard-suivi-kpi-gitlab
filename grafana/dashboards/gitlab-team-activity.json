@@ -1771,7 +1771,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (status) (rate(http_requests_total{job=~\"gitlab-rails|gitlab-puma\"}[5m]))",
+          "expr": "sum by (status) (rate(http_requests_total{job=~\"gitlab-rails|gitlab-puma\"}[$__rate_interval]))",
           "legendFormat": "{{status}}",
           "refId": "A"
         }
@@ -1834,7 +1834,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(sidekiq_jobs_failed_total[5m]))",
+          "expr": "sum(rate(sidekiq_jobs_failed_total[$__rate_interval]))",
           "legendFormat": "Échecs /s",
           "refId": "B"
         }

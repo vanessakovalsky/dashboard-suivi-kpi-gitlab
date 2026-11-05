@@ -117,6 +117,49 @@ Avec Docker, remplacez `podman compose` par `docker compose`.
 
 Les montages utilisent `:Z` pour SELinux (Fedora/RHEL), ce qui est sans effet ailleurs.
 
+### Données simulées sans GitLab (Prometheus + Grafana existants, airgap)
+
+Quand il est impossible de lancer GitLab ou de brancher l'exporter, utilisez `scripts/simulate_gitlab_metrics.py`. Il ne demande que **Python 3.12+ et sa bibliothèque standard**, sans `pip install`.
+
+Il produit **toutes** les séries du dashboard sous les noms et labels des vrais exporters :
+- 3 projets et des sprints de 14 jours, avec burndown et ajout de périmètre ;
+- le workflow, les retards en fin de sprint, les MR ;
+- des pipelines avec des taux d'échec différents par projet et des incidents ponctuels ;
+- le trafic de l'instance GitLab.
+
+Les valeurs dépendent uniquement de l'heure : l'historique importé et le flux en direct se raccordent sans rupture.
+
+**1. Remplir 30 jours d'historique** (facultatif, mais sans cela les courbes démarrent à vide) :
+
+```bash
+python3 scripts/simulate_gitlab_metrics.py backfill --days 30 --out kpi.om   # ~300 Mo, 15 s
+promtool tsdb create-blocks-from openmetrics --max-block-duration=24h kpi.om ./blocks   # ~1 min
+```
+
+Copiez ensuite le contenu de `./blocks/` dans le dossier de données de Prometheus, puis redémarrez Prometheus.
+
+Avec Prometheus en conteneur, en une seule commande :
+
+```bash
+podman run --rm --user 65534 -v ./kpi.om:/kpi.om:ro,Z -v <volume-data-prometheus>:/prometheus \
+  --entrypoint promtool docker.io/prom/prometheus:v3.5.0 \
+  tsdb create-blocks-from openmetrics --max-block-duration=24h /kpi.om /prometheus
+podman restart <conteneur-prometheus>
+```
+
+- La rétention de Prometheus (`--storage.tsdb.retention.time`) doit dépasser `--days`, sinon les blocs importés sont supprimés.
+- Gardez `--step` à 5 minutes au maximum (valeur par défaut). Au-delà, Grafana affiche des trous à cause de la fenêtre de 5 minutes de Prometheus.
+
+**2. Alimenter en continu** :
+
+```bash
+python3 scripts/simulate_gitlab_metrics.py serve --port 9200
+```
+
+Ajoutez ensuite le bloc `prometheus/simulator-scrape.yml` à votre Prometheus, en remplaçant `HOTE_DU_SIMULATEUR`, et rechargez la configuration. **`honor_labels: true` et le relabel `instance` sont nécessaires** pour que les séries correspondent à l'historique.
+
+**3. Grafana** : importez `grafana/dashboards/gitlab-team-activity.json`. Il attend une datasource Prometheus d'UID `prometheus`. Si la vôtre a un autre UID, remplacez-le dans le JSON avant l'import.
+
 ## 5. Tests, qualité, sécurité (local)
 
 ```bash
