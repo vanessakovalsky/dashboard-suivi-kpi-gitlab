@@ -117,7 +117,17 @@ services:
       HISTORY_DAYS: ${EXPORTER_HISTORY_DAYS:-30}
       WORKFLOW_LABEL_PREFIX: ${WORKFLOW_LABEL_PREFIX:-workflow::}
 
+  # Runner de démonstration (executor shell) pour que les pipelines s'exécutent.
+  # Enregistré automatiquement par scripts/seed-gitlab.sh.
+  gitlab-runner:
+    image: docker.io/gitlab/gitlab-runner:${RUNNER_IMAGE_TAG:-alpine-v18.5.0}
+    restart: unless-stopped
+    profiles: ["demo"]
+    volumes:
+      - gitlab-runner-config:/etc/gitlab-runner
+
 volumes:
+  gitlab-runner-config:
   gitlab-config:
   gitlab-logs:
   gitlab-data:

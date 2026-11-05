@@ -87,6 +87,32 @@ podman compose ps
    ```
 5. Ouvrez le dashboard sur <http://localhost:3000>. Il est configuré comme page d'accueil de Grafana.
 
+### Données de démo (pour présenter le dashboard)
+
+```bash
+podman compose --profile demo up -d          # runner shell, pour exécuter les pipelines
+./scripts/seed-gitlab.sh podman              # ou docker
+# Dans .env : GITLAB_GROUP=equipe-demo, puis :
+podman compose --profile exporters up -d --build
+```
+
+Le script commence par créer un token admin temporaire (1 jour) et enregistrer le runner. Il crée ensuite :
+- 4 développeurs, dans un groupe `equipe-demo` ;
+- 3 projets (`api`, `web`, `mobile`) ;
+- une CI dont le job `test` échoue à 20 %, 35 % et 10 % selon le projet ;
+- les labels `workflow::` et 3 sprints (précédent, en cours, suivant) ;
+- environ 75 issues pondérées, antidatées sur 30 jours et en partie fermées ;
+- des MR en brouillon, ouvertes et mergées ;
+- des pipelines.
+
+Variables utiles :
+- `SEED_ISSUES_PER_PROJECT` (25 par défaut) et `SEED_PIPELINES` (8 par défaut) règlent le volume.
+- `SEED_RANDOM` fixe la graine aléatoire, pour des données reproductibles.
+
+Le script est **additif** : chaque exécution ajoute des issues, des MR et des pipelines. Relancez-le pour faire bouger les courbes.
+
+Les courbes (burndown, débit) se construisent à partir du démarrage de Prometheus. Pour une démo, laissez tourner la stack quelques heures, ou relancez le seed plusieurs fois avec un intervalle.
+
 Avec Docker, remplacez `podman compose` par `docker compose`.
 
 Les montages utilisent `:Z` pour SELinux (Fedora/RHEL), ce qui est sans effet ailleurs.
