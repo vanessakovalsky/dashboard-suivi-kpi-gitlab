@@ -37,7 +37,7 @@ Filtres : `Projet` et `Jalon`.
 
 **Conventions côté équipe** pour des données utiles :
 - labels scopés `workflow::todo`, `workflow::doing`, `workflow::review`… (préfixe configurable via `WORKFLOW_LABEL_PREFIX`) ;
-- poids sur les issues ;
+- poids sur les issues (GitLab CE : le poids natif est une fonctionnalité Premium, l'API le renvoie vide → label scopé `weight::N`, ex. `weight::3`, lu par l'exporter en repli) ;
 - jalons et dates d'échéance.
 
 Le dashboard est généré par `scripts/build_dashboard.py`. Modifiez ce script puis régénérez le JSON ; la CI vérifie que les deux restent synchronisés.
@@ -47,6 +47,7 @@ Le dashboard est généré par `scripts/build_dashboard.py`. Modifiez ce script 
 - **8 Go de RAM conseillés** (4 Go minimum pour GitLab seul).
 - Ports libres : 8929 (GitLab), 2224 (SSH GitLab), 9090 (Prometheus), 3000 (Grafana).
 - Sans conteneur : Python 3.12+ pour l'exporter.
+- Données de démo : **Python 3.11+ sur l'hôte** pour `scripts/seed-gitlab.sh` (`datetime.UTC`). Avec un Python plus ancien, voir [Dépannage](#dépannage).
 
 ## 3. Installation sans conteneur (exporter seul, GitLab existant)
 
@@ -69,11 +70,13 @@ Ensuite :
 ## 4. Installation avec conteneurs
 
 ```bash
-cp .env.example .env        # changez les mots de passe
+cp .env.example .env        # changez les mots de passe (voir ci-dessous)
 podman compose up -d gitlab prometheus grafana
 # Attendre que GitLab soit "healthy" (5 à 10 min au premier démarrage)
 podman compose ps
 ```
+
+> **Mot de passe root GitLab** : 12 caractères minimum et **aucun mot ou combinaison courante** (ex. `GitlabFormation2026` est refusé). En cas de refus, GitLab ne signale rien au démarrage mais n'initialise pas la base : pas de compte `root`, erreurs 500 ensuite. Valeur sûre : `openssl rand -base64 18`.
 
 1. Connectez-vous à <http://localhost:8929> avec `root` et le mot de passe `GITLAB_ROOT_PASSWORD`. Créez le groupe de l'équipe (ou importez des projets).
 2. Créez le token de lecture pour les exporters :
@@ -112,6 +115,20 @@ Variables utiles :
 Le script est **additif** : chaque exécution ajoute des issues, des MR et des pipelines. Relancez-le pour faire bouger les courbes.
 
 Les courbes (burndown, débit) se construisent à partir du démarrage de Prometheus. Pour une démo, laissez tourner la stack quelques heures, ou relancez le seed plusieurs fois avec un intervalle.
+
+### Redémarrages
+
+Aucune manipulation : volumes et historique Prometheus sont conservés. Les exporters attendent que GitLab soit `healthy` (≈ 5 min), puis réessaient toutes les 30 s en cas d'échec (`RETRY_SECONDS`). Dashboard vide juste après un redémarrage = GitLab encore en démarrage.
+
+### Dépannage
+
+| Symptôme | Cause | Correction |
+|---|---|---|
+| `required variable … is missing a value` | `.env` absent ou mal nommé (ex. `.env*` créé par un éditeur) | Vérifier `ls -a` : le fichier doit s'appeler exactement `.env` |
+| Pas de compte `root`, erreurs 500 (`DEFAULT_TYPES_NOT_SEEDED`, `CI job token signing key is not set`) | Mot de passe root refusé ou premier démarrage interrompu (mémoire) → base non initialisée | Instance neuve : `down -v` puis redémarrer avec un mot de passe robuste. Sinon : créer `root` via `gitlab-rails runner`, puis `gitlab-rake db:seed_fu FILTER=004_create_base_work_item_types,005_add_security_training_providers,010_settings` |
+| GitLab très lent, cibles Prometheus en `context deadline exceeded` | Mémoire insuffisante (Docker Desktop : 4 Go par défaut) | Docker Desktop → *Settings → Resources → Memory* : 8 Go |
+| `seed_gitlab.py` : `ImportError: cannot import name 'UTC'` | Python < 3.11 sur l'hôte | Installer Python 3.11+, ou placer en tête du `PATH` un `python3` qui exécute `docker run --rm -i --network gitlab-kpi_default -e GITLAB_URL=http://gitlab -e GITLAB_TOKEN -v "$PWD/scripts:$PWD/scripts:ro" python:3.12-alpine python3 "$@"` |
+| `error getting credentials … no usernames for https://index.docker.io` au `--build` | Docker Desktop : `"credsStore": "desktop"` sans compte connecté | `docker login`, ou retirer `credsStore` de `~/.docker/config.json` |
 
 Avec Docker, remplacez `podman compose` par `docker compose`.
 
@@ -244,6 +261,6 @@ Choix de sécurité :
 - Le mot de passe root GitLab et le mot de passe admin Grafana sont **obligatoires** dans `.env` : compose refuse de démarrer sinon.
 
 Limites connues :
-- Le « reste à faire » repose sur les poids des issues : sans poids, utilisez le nombre d'issues ouvertes par jalon.
+- Le « reste à faire » repose sur les poids des issues : poids natif (Premium) ou, sur GitLab CE, label `weight::N`. Sans poids, utilisez le nombre d'issues ouvertes par jalon.
 - Les tags d'images sont épinglés dans `.env.example` ; vérifiez qu'ils correspondent à la dernière version stable avant une mise en production.
 - Le maintien actif de `gitlab-ci-pipelines-exporter` est à surveiller. En cas d'abandon, l'exporter maison couvre déjà le taux d'échec et les statuts sur 7 j.
