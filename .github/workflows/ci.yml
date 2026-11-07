@@ -58,7 +58,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: exporter/pyproject.toml
-      - run: pip install -e "exporter[dev]" semgrep==1.101.0
+      - run: pip install -e "exporter[dev]" semgrep==1.101.0 "setuptools<81"  # semgrep 1.101 importe pkg_resources (retiré de setuptools 81)
       - name: bandit
         run: bandit -q -r exporter/workitems_exporter
       - name: pip-audit
