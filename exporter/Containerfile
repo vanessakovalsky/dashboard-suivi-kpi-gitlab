@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
-FROM docker.io/library/python:3.13.1-slim-bookworm AS build
+FROM docker.io/library/python:3.13.17-slim-trixie AS build
 WORKDIR /src
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 COPY workitems_exporter ./workitems_exporter
 
-FROM docker.io/library/python:3.13.1-slim-bookworm
+FROM docker.io/library/python:3.13.17-slim-trixie
 LABEL org.opencontainers.image.title="gitlab-workitems-exporter" \
       org.opencontainers.image.source="https://github.com/vanessakovalsky/dashboard-suivi-kpi-gitlab"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 EXPORTER_PORT=9200

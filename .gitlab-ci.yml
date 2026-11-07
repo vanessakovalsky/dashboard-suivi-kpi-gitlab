@@ -8,7 +8,7 @@ default:
   interruptible: true
 
 .python:
-  image: docker.io/library/python:3.13.1-slim-bookworm
+  image: docker.io/library/python:3.13.17-slim-trixie
   cache:
     key:
       files: [exporter/pyproject.toml]
