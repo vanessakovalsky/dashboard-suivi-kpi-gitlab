@@ -21,8 +21,11 @@ project_defaults:
         enabled: true
     environments:
       enabled: false
-    merge_requests:
-      enabled: true
+    refs:
+      branches:
+        enabled: true
+      merge_requests:
+        enabled: true   # pipelines de MR (nécessite des pipelines merge_request_event)
 
 pull:
   projects_from_wildcards:

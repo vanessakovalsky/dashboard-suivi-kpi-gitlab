@@ -27,6 +27,19 @@ def issue(**kw):
     return base
 
 
+def test_weight_falls_back_to_scoped_label_on_ce():
+    snap = Snapshot()
+    issues = [
+        issue(weight=None, labels=["weight::5", "workflow::todo"], milestone={"title": "S45"}),
+        issue(weight=2, labels=["weight::8"], milestone={"title": "S45"}),  # natif prioritaire
+        issue(weight=None, labels=["weight::abc"], milestone={"title": "S45"}),  # ignoré
+        issue(state="closed", weight=None, labels=["weight::3"], milestone={"title": "S45"}),
+    ]
+    compute_issue_metrics(snap, issues, PROJECTS, NOW)
+    assert snap.get("gitlab_issues_weight_remaining", project="team/api", milestone="S45") == 7
+    assert snap.get("gitlab_issues_weight_done", project="team/api", milestone="S45") == 3
+
+
 def test_parse_ts_handles_z_and_none():
     assert parse_ts(None) is None
     assert parse_ts("2026-11-05T12:00:00Z") == NOW

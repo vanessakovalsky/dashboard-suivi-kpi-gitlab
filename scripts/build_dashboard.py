@@ -50,10 +50,18 @@ def panel(
     thresholds: list[tuple[str, float | None]] | None = None,
     options: dict[str, Any] | None = None,
     overrides: list[Any] | None = None,
+    no_value: str | None = None,
 ) -> dict[str, Any]:
     for i, t in enumerate(targets):
         t["refId"] = chr(ord("A") + i)
     steps = [{"color": c, "value": v} for c, v in (thresholds or [("green", None)])]
+    defaults: dict[str, Any] = {
+        "unit": unit,
+        "thresholds": {"mode": "absolute", "steps": steps},
+        "color": {"mode": "thresholds" if thresholds else "palette-classic"},
+    }
+    if no_value is not None:
+        defaults["noValue"] = no_value  # texte affiché au lieu de « No data »
     return {
         "id": _id(),
         "type": kind,
@@ -63,11 +71,7 @@ def panel(
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "targets": targets,
         "fieldConfig": {
-            "defaults": {
-                "unit": unit,
-                "thresholds": {"mode": "absolute", "steps": steps},
-                "color": {"mode": "thresholds" if thresholds else "palette-classic"},
-            },
+            "defaults": defaults,
             "overrides": overrides or [],
         },
         "options": options or {},
@@ -438,6 +442,7 @@ def build() -> dict[str, Any]:
                 )
             ],
             options={"showHeader": True},
+            no_value="Aucun job en échec sur le dernier pipeline",
         ),
     ]
     for p in panels[-2:]:

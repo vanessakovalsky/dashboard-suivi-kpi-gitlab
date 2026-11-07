@@ -63,6 +63,26 @@ def _workflow_label(labels: list[str], workflow_prefix: str) -> str:
     return "none"
 
 
+WEIGHT_LABEL_PREFIX = "weight::"
+
+
+def issue_weight(issue: dict[str, Any], labels: list[str]) -> float:
+    """Poids natif (GitLab Premium+), sinon label scopé 'weight::N' (GitLab CE), sinon 0.
+
+    GitLab CE ignore le champ 'weight' : l'API renvoie toujours null.
+    """
+    native = issue.get("weight")
+    if native is not None:
+        return float(native)
+    for label in labels:
+        if label.startswith(WEIGHT_LABEL_PREFIX):
+            try:
+                return float(label[len(WEIGHT_LABEL_PREFIX) :])
+            except ValueError:
+                continue
+    return 0.0
+
+
 def compute_issue_metrics(
     snap: Snapshot,
     issues: list[dict[str, Any]],
@@ -77,10 +97,10 @@ def compute_issue_metrics(
     for issue in issues:
         project = _project_of(issue, projects)
         state = str(issue.get("state", "unknown"))
-        weight = issue.get("weight") or 0
         milestone = (issue.get("milestone") or {}).get("title") or "none"
         assignees = issue.get("assignees") or []
         labels = [str(lbl) for lbl in issue.get("labels") or []]
+        weight = issue_weight(issue, labels)
 
         if state == "opened":
             snap.add("gitlab_issues_open", 1, project=project)

@@ -1600,7 +1600,8 @@
           },
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "noValue": "Aucun job en échec sur le dernier pipeline"
         },
         "overrides": []
       },

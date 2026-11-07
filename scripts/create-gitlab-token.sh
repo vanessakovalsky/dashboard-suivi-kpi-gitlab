@@ -4,7 +4,8 @@
 set -euo pipefail
 
 ENGINE="${1:-podman}"
-CONTAINER="$("${ENGINE}" ps --filter "name=gitlab-kpi[-_]gitlab" --format '{{.Names}}' | grep -v exporter | head -n1 || true)"
+# Nom exact (sinon "gitlab" correspond aussi à "gitlab-runner")
+CONTAINER="$("${ENGINE}" ps --format '{{.Names}}' | grep -E '^gitlab-kpi[-_]gitlab[-_][0-9]+$' | head -n1 || true)"
 if [[ -z "${CONTAINER}" ]]; then
   echo "Conteneur GitLab introuvable : lancez d'abord '${ENGINE} compose up -d gitlab'." >&2
   exit 1

@@ -7,3 +7,7 @@ __pycache__/
 coverage.xml
 *.egg-info/
 .venv/
+
+# Copies accidentelles de .env (ex. ".env*" créé par un éditeur), sauf le modèle
+.env*
+!.env.example

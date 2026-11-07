@@ -137,6 +137,8 @@ def main() -> None:
     refresh = int(os.getenv("REFRESH_SECONDS", "300"))
     history = int(os.getenv("HISTORY_DAYS", "30"))
     prefix = os.getenv("WORKFLOW_LABEL_PREFIX", "workflow::")
+    # Après un échec (GitLab encore en démarrage…), on réessaie vite au lieu d'attendre `refresh`
+    retry = min(int(os.getenv("RETRY_SECONDS", "30")), refresh)
 
     client = GitLabClient(url, token)
     collector = SnapshotCollector()
@@ -149,10 +151,12 @@ def main() -> None:
         try:
             collector.update(collect_once(client, group, history, prefix), time.monotonic() - start)
             LOG.info("Collecte OK en %.1fs", time.monotonic() - start)
+            delay = refresh
         except (GitLabError, KeyError, ValueError) as exc:
             collector.mark_failed()
-            LOG.error("Collecte en échec : %s", exc)
-        time.sleep(refresh)
+            LOG.error("Collecte en échec : %s (nouvel essai dans %ds)", exc, retry)
+            delay = retry
+        time.sleep(delay)
 
 
 if __name__ == "__main__":

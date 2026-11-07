@@ -10,7 +10,8 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 GITLAB_URL="${SEED_GITLAB_URL:-http://localhost:${GITLAB_HTTP_PORT:-8929}}"
 
 find_container() {
-  "${ENGINE}" ps --filter "name=gitlab-kpi[-_]$1" --format '{{.Names}}' | grep -v exporter | head -n1 || true
+  # Nom exact (sinon "gitlab" correspond aussi à "gitlab-runner")
+  "${ENGINE}" ps --format '{{.Names}}' | grep -E "^gitlab-kpi[-_]$1[-_][0-9]+$" | head -n1 || true
 }
 
 GITLAB_CT="$(find_container gitlab)"

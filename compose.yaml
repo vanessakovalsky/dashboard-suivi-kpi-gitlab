@@ -32,6 +32,8 @@ services:
         puma['exporter_enabled'] = true
         puma['exporter_address'] = '0.0.0.0'
         puma['exporter_port'] = 8083
+        # Désactivé par défaut quand prometheus['enable'] = false : à forcer explicitement
+        node_exporter['enable'] = true
         node_exporter['listen_address'] = '0.0.0.0:9100'
         # Instance de démo : on réduit l'empreinte mémoire
         puma['worker_processes'] = 2
@@ -94,9 +96,13 @@ services:
     image: docker.io/mvisonneau/gitlab-ci-pipelines-exporter:${GCPE_IMAGE_TAG:-v0.5.10}
     restart: unless-stopped
     profiles: ["exporters"]
+    depends_on:
+      gitlab:
+        condition: service_healthy
     command: ["run", "--config", "/etc/gcpe/gitlab-ci-pipelines-exporter.yml"]
     environment:
-      GCPE_GITLAB_TOKEN: ${GITLAB_TOKEN:?créer le token (scripts/create-gitlab-token.sh) puis le mettre dans .env}
+      # `:-` et non `:?` : compose interpole aussi les profils inactifs, ce qui bloquerait l'étape 1
+      GCPE_GITLAB_TOKEN: ${GITLAB_TOKEN:-}
       GCPE_INTERNAL_MONITORING_LISTENER_ADDRESS: tcp://127.0.0.1:8082
     volumes:
       - ./gcpe:/etc/gcpe:ro,Z
@@ -109,10 +115,14 @@ services:
     image: localhost/gitlab-workitems-exporter:0.1.0
     restart: unless-stopped
     profiles: ["exporters"]
+    depends_on:
+      gitlab:
+        condition: service_healthy
     environment:
       GITLAB_URL: http://gitlab
-      GITLAB_TOKEN: ${GITLAB_TOKEN:?créer le token (scripts/create-gitlab-token.sh) puis le mettre dans .env}
-      GITLAB_GROUP: ${GITLAB_GROUP:?définir GITLAB_GROUP (chemin du groupe suivi) dans .env}
+      # Vérifiés au démarrage par l'exporter (erreur explicite si vides)
+      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
+      GITLAB_GROUP: ${GITLAB_GROUP:-}
       REFRESH_SECONDS: ${EXPORTER_REFRESH_SECONDS:-300}
       HISTORY_DAYS: ${EXPORTER_HISTORY_DAYS:-30}
       WORKFLOW_LABEL_PREFIX: ${WORKFLOW_LABEL_PREFIX:-workflow::}

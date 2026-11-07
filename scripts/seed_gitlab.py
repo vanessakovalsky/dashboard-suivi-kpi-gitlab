@@ -219,13 +219,15 @@ def seed_issues(
         created = now - timedelta(days=rng.randint(0, 30), hours=rng.randint(0, 23))
         milestone = rng.choices([prev, cur, nxt, None], weights=[3, 5, 2, 1])[0]
         closed = (milestone == prev and rng.random() < 0.85) or rng.random() < 0.25
-        labels = [rng.choice(["type::bug", "type::feature"])]
+        weight = rng.choice([1, 1, 2, 3, 3, 5, 8])
+        # GitLab CE ignore "weight" (Premium) : le label weight::N sert de repli à l'exporter
+        labels = [rng.choice(["type::bug", "type::feature"]), f"weight::{weight}"]
         if not closed:
             labels.append("workflow::" + rng.choices(WORKFLOW, weights=[4, 3, 2])[0])
         data: dict[str, Any] = {
             "title": rng.choice(TITLES),
             "labels": ",".join(labels),
-            "weight": rng.choice([1, 1, 2, 3, 3, 5, 8]),
+            "weight": weight,
             "created_at": created.isoformat(),
         }
         if milestone:
